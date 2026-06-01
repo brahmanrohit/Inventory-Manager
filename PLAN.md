@@ -109,6 +109,17 @@ If work is interrupted, check the WORK LOG checkboxes above. Next unchecked item
 - [x] Docs/env updated (SECRET_KEY, ACCESS_TOKEN_EXPIRE_MINUTES) across README, compose, .env.example
 - Note: new requirements (pyjwt, bcrypt) added to backend/requirements.txt
 
+### 2026-06-01 — DEPLOYED ✅ (all 4 deliverables done)
+- [x] GitHub repo: https://github.com/brahmanrohit/Inventory-Manager
+- [x] Docker Hub image: https://hub.docker.com/r/rohitethara/inventory-backend (tags latest, 1.0.0)
+- [x] Backend live on Render + managed PostgreSQL: https://inventory-manager-2huq.onrender.com
+      (verified /health, register→Postgres write, dashboard→Postgres read, 401 without token)
+- [x] Frontend live on Vercel: https://inventory-manager-chi-seven.vercel.app
+      (public after disabling Deployment Protection; bundle points at Render backend)
+- [x] CORS verified: preflight echoes Vercel origin; cross-origin login 200 OK
+- Optional hardening left: set Render CORS_ORIGINS to exact Vercel URL (currently * — works,
+  but explicit origin is best practice).
+
 ### Current status (2026-06-01)
 Application is CODE-COMPLETE and verified at the code level. Remaining steps are
 operational, not coding:

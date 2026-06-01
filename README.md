@@ -12,6 +12,21 @@ A production-ready, fully containerized full-stack application for managing **pr
 
 ---
 
+## 🌐 Live Demo & Links
+
+| Resource | URL |
+|----------|-----|
+| **Live App (Frontend)** | https://inventory-manager-chi-seven.vercel.app |
+| **Live API (Backend)** | https://inventory-manager-2huq.onrender.com |
+| **API Docs (Swagger)** | https://inventory-manager-2huq.onrender.com/docs |
+| **GitHub Repository** | https://github.com/brahmanrohit/Inventory-Manager |
+| **Docker Hub Image** | https://hub.docker.com/r/rohitethara/inventory-backend |
+
+> Backend is on Render's free tier — the first request after ~15 min of inactivity may take 30–50s to wake up.
+> The app requires sign-up/login (JWT auth); create an account on the live site to explore.
+
+---
+
 ## ✨ Features
 
 **Authentication** — JWT-based sign-up & login · passwords hashed with bcrypt · all business APIs protected behind a bearer token · token persisted client-side with auto-logout on expiry
@@ -179,10 +194,10 @@ docker push <your-dockerhub-username>/inventory-backend:latest
 ---
 
 ## 📦 Submission Checklist
-- [ ] GitHub repository link (frontend + backend)
-- [ ] Docker Hub image link for the backend image
-- [ ] Live frontend deployment URL
-- [ ] Live backend API URL
+- [x] GitHub repository link (frontend + backend) — https://github.com/brahmanrohit/Inventory-Manager
+- [x] Docker Hub image link for the backend image — https://hub.docker.com/r/rohitethara/inventory-backend
+- [x] Live frontend deployment URL — https://inventory-manager-chi-seven.vercel.app
+- [x] Live backend API URL — https://inventory-manager-2huq.onrender.com
 
 ---
 
