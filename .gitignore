@@ -1,0 +1,39 @@
+# Environment
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Node
+node_modules/
+dist/
+npm-debug.log*
+yarn-error.log*
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Build / misc
+*.log
+
+# Local SQLite preview database (we use PostgreSQL for Docker/deploy)
+*.db
+*.sqlite3
+backend/dev.db
+
+# Assessment brief (not part of the deliverable code)
+instruction/
