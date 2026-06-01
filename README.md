@@ -20,7 +20,7 @@ A production-ready, fully containerized full-stack application for managing **pr
 | **Live API (Backend)** | https://inventory-manager-2huq.onrender.com |
 | **API Docs (Swagger)** | https://inventory-manager-2huq.onrender.com/docs |
 | **GitHub Repository** | https://github.com/brahmanrohit/Inventory-Manager |
-| **Docker Hub Image** | https://hub.docker.com/r/rohitethara/inventory-backend |
+| **Docker Hub Image** | https://hub.docker.com/r/rohitmajdoor/inventory-backend |
 
 > Backend is on Render's free tier — the first request after ~15 min of inactivity may take 30–50s to wake up.
 > The app requires sign-up/login (JWT auth); create an account on the live site to explore.
@@ -195,7 +195,7 @@ docker push <your-dockerhub-username>/inventory-backend:latest
 
 ## 📦 Submission Checklist
 - [x] GitHub repository link (frontend + backend) — https://github.com/brahmanrohit/Inventory-Manager
-- [x] Docker Hub image link for the backend image — https://hub.docker.com/r/rohitethara/inventory-backend
+- [x] Docker Hub image link for the backend image — https://hub.docker.com/r/rohitmajdoor/inventory-backend
 - [x] Live frontend deployment URL — https://inventory-manager-chi-seven.vercel.app
 - [x] Live backend API URL — https://inventory-manager-2huq.onrender.com
 

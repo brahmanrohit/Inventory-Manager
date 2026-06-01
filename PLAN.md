@@ -111,7 +111,7 @@ If work is interrupted, check the WORK LOG checkboxes above. Next unchecked item
 
 ### 2026-06-01 — DEPLOYED ✅ (all 4 deliverables done)
 - [x] GitHub repo: https://github.com/brahmanrohit/Inventory-Manager
-- [x] Docker Hub image: https://hub.docker.com/r/rohitethara/inventory-backend (tags latest, 1.0.0)
+- [x] Docker Hub image: https://hub.docker.com/r/rohitmajdoor/inventory-backend (tags latest, 1.0.0)
 - [x] Backend live on Render + managed PostgreSQL: https://inventory-manager-2huq.onrender.com
       (verified /health, register→Postgres write, dashboard→Postgres read, 401 without token)
 - [x] Frontend live on Vercel: https://inventory-manager-chi-seven.vercel.app
