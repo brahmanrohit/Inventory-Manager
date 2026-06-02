@@ -1,6 +1,6 @@
 """Authentication endpoints: register, login, current user."""
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth import create_access_token, get_current_user, hash_password, verify_password
@@ -19,10 +19,13 @@ def register(payload: UserRegister, db: Session = Depends(get_db)):
             status_code=status.HTTP_409_CONFLICT,
             detail="An account with this email already exists",
         )
+    # The very first account to register becomes the admin; everyone else is staff.
+    is_first_user = (db.scalar(select(func.count(User.id))) or 0) == 0
     user = User(
         full_name=payload.full_name.strip(),
         email=str(payload.email),
         hashed_password=hash_password(payload.password),
+        role="admin" if is_first_user else "staff",
     )
     db.add(user)
     db.commit()

@@ -1,8 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
-import { CustomersAPI, OrdersAPI, ProductsAPI, extractError } from "../api/client.js";
-import { ConfirmDelete, EmptyState, ErrorState, Field, Spinner } from "../components/Common.jsx";
+import { CustomersAPI, DataAPI, OrdersAPI, ProductsAPI, extractError } from "../api/client.js";
+import {
+  ConfirmDelete, EmptyState, ErrorState, Field, Pagination, SearchBar, Spinner, StatusBadge, useDebouncedValue,
+} from "../components/Common.jsx";
 import Modal from "../components/Modal.jsx";
 import { useToast } from "../components/Toast.jsx";
+
+const PAGE_SIZE = 10;
+const STATUSES = ["pending", "confirmed", "shipped", "delivered", "cancelled"];
+// Allowed forward transitions (mirrors the backend lifecycle).
+const NEXT = {
+  pending: ["confirmed", "cancelled"],
+  confirmed: ["shipped", "cancelled"],
+  shipped: ["delivered", "cancelled"],
+  delivered: [],
+  cancelled: [],
+};
+const ACTION_LABEL = {
+  confirmed: "Mark Confirmed",
+  shipped: "Mark Shipped",
+  delivered: "Mark Delivered",
+  cancelled: "Cancel Order",
+};
 
 function formatDate(iso) {
   try {
@@ -14,9 +33,14 @@ function formatDate(iso) {
 
 export default function Orders() {
   const toast = useToast();
-  const [orders, setOrders] = useState([]);
+  const [data, setData] = useState({ items: [], total: 0, pages: 1, page: 1 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [page, setPage] = useState(1);
 
   // Create-order modal state
   const [createOpen, setCreateOpen] = useState(false);
@@ -30,19 +54,26 @@ export default function Orders() {
 
   // Detail + delete
   const [detail, setDetail] = useState(null);
+  const [statusBusy, setStatusBusy] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
   const load = () => {
     setLoading(true);
     setError("");
-    OrdersAPI.list()
-      .then(setOrders)
+    OrdersAPI.list({
+      q: debouncedSearch || undefined,
+      status: statusFilter || undefined,
+      page,
+      page_size: PAGE_SIZE,
+    })
+      .then(setData)
       .catch((e) => setError(extractError(e)))
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, []);
+  useEffect(() => setPage(1), [debouncedSearch, statusFilter]);
+  useEffect(load, [debouncedSearch, statusFilter, page]);
 
   const openCreate = async () => {
     setCustomerId("");
@@ -51,9 +82,12 @@ export default function Orders() {
     setCreateOpen(true);
     setRefsLoading(true);
     try {
-      const [p, c] = await Promise.all([ProductsAPI.list(), CustomersAPI.list()]);
-      setProducts(p);
-      setCustomers(c);
+      const [p, c] = await Promise.all([
+        ProductsAPI.list({ page_size: 100 }),
+        CustomersAPI.list({ page_size: 100 }),
+      ]);
+      setProducts(p.items);
+      setCustomers(c.items);
     } catch (err) {
       toast.error(extractError(err));
     } finally {
@@ -75,30 +109,21 @@ export default function Orders() {
     }, 0);
   }, [lines, productById]);
 
-  const updateLine = (i, patch) =>
-    setLines((ls) => ls.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
+  const updateLine = (i, patch) => setLines((ls) => ls.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
   const addLine = () => setLines((ls) => [...ls, { product_id: "", quantity: 1 }]);
   const removeLine = (i) => setLines((ls) => ls.filter((_, idx) => idx !== i));
 
   const submit = async (e) => {
     e.preventDefault();
     setFormError("");
+    if (!customerId) return setFormError("Please select a customer");
 
-    if (!customerId) {
-      setFormError("Please select a customer");
-      return;
-    }
     const cleaned = lines
       .filter((l) => l.product_id)
       .map((l) => ({ product_id: Number(l.product_id), quantity: Number(l.quantity) }));
-    if (cleaned.length === 0) {
-      setFormError("Add at least one product");
-      return;
-    }
-    if (cleaned.some((l) => !Number.isInteger(l.quantity) || l.quantity <= 0)) {
-      setFormError("Quantities must be whole numbers greater than 0");
-      return;
-    }
+    if (cleaned.length === 0) return setFormError("Add at least one product");
+    if (cleaned.some((l) => !Number.isInteger(l.quantity) || l.quantity <= 0))
+      return setFormError("Quantities must be whole numbers greater than 0");
 
     setSaving(true);
     try {
@@ -115,10 +140,23 @@ export default function Orders() {
 
   const openDetail = async (id) => {
     try {
-      const data = await OrdersAPI.get(id);
-      setDetail(data);
+      setDetail(await OrdersAPI.get(id));
     } catch (err) {
       toast.error(extractError(err));
+    }
+  };
+
+  const changeStatus = async (newStatus) => {
+    setStatusBusy(true);
+    try {
+      const updated = await OrdersAPI.updateStatus(detail.id, newStatus);
+      setDetail(updated);
+      toast.success(`Order #${updated.id} → ${newStatus}`);
+      load();
+    } catch (err) {
+      toast.error(extractError(err));
+    } finally {
+      setStatusBusy(false);
     }
   };
 
@@ -126,7 +164,7 @@ export default function Orders() {
     setDeleting(true);
     try {
       await OrdersAPI.remove(deleteTarget.id);
-      toast.success("Order deleted — stock restored");
+      toast.success("Order deleted");
       setDeleteTarget(null);
       load();
     } catch (err) {
@@ -143,23 +181,28 @@ export default function Orders() {
           <h2>Orders</h2>
           <p className="muted">Create and track customer orders</p>
         </div>
-        <button className="btn btn-primary" onClick={openCreate}>
-          + Create Order
-        </button>
+        <div className="header-actions">
+          <button className="btn btn-ghost" onClick={() => DataAPI.download("/data/orders.csv", "orders.csv").catch((e) => toast.error(extractError(e)))}>⬇ Export CSV</button>
+          <button className="btn btn-primary" onClick={openCreate}>+ Create Order</button>
+        </div>
+      </div>
+
+      <div className="toolbar">
+        <SearchBar value={search} onChange={setSearch} placeholder="Search by customer…" />
+        <select className="input toolbar-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <option value="">All statuses</option>
+          {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
       </div>
 
       {loading ? (
         <Spinner label="Loading orders..." />
       ) : error ? (
         <ErrorState message={error} onRetry={load} />
-      ) : orders.length === 0 ? (
+      ) : data.items.length === 0 ? (
         <EmptyState
-          message="No orders yet."
-          action={
-            <button className="btn btn-primary" onClick={openCreate}>
-              Create your first order
-            </button>
-          }
+          message={debouncedSearch || statusFilter ? "No orders match your filters." : "No orders yet."}
+          action={!debouncedSearch && !statusFilter ? <button className="btn btn-primary" onClick={openCreate}>Create your first order</button> : null}
         />
       ) : (
         <div className="panel">
@@ -177,29 +220,24 @@ export default function Orders() {
                 </tr>
               </thead>
               <tbody>
-                {orders.map((o) => (
+                {data.items.map((o) => (
                   <tr key={o.id}>
                     <td>#{o.id}</td>
                     <td>{o.customer_name || `Customer ${o.customer_id}`}</td>
                     <td className="num">{o.items.reduce((s, i) => s + i.quantity, 0)}</td>
                     <td className="num">${Number(o.total_amount).toFixed(2)}</td>
-                    <td>
-                      <span className="badge badge-ok">{o.status}</span>
-                    </td>
+                    <td><StatusBadge status={o.status} /></td>
                     <td>{formatDate(o.created_at)}</td>
                     <td className="actions-col">
-                      <button className="btn btn-sm btn-ghost" onClick={() => openDetail(o.id)}>
-                        View
-                      </button>
-                      <button className="btn btn-sm btn-danger-ghost" onClick={() => setDeleteTarget(o)}>
-                        Delete
-                      </button>
+                      <button className="btn btn-sm btn-ghost" onClick={() => openDetail(o.id)}>View</button>
+                      <button className="btn btn-sm btn-danger-ghost" onClick={() => setDeleteTarget(o)}>Delete</button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          <Pagination page={data.page} pages={data.pages} total={data.total} pageSize={PAGE_SIZE} onPage={setPage} />
         </div>
       )}
 
@@ -211,36 +249,22 @@ export default function Orders() {
           ) : (
             <form onSubmit={submit} className="form">
               <Field label="Customer">
-                <select
-                  className="input"
-                  value={customerId}
-                  onChange={(e) => setCustomerId(e.target.value)}
-                >
+                <select className="input" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
                   <option value="">Select a customer…</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.full_name} ({c.email})
-                    </option>
-                  ))}
+                  {customers.map((c) => <option key={c.id} value={c.id}>{c.full_name} ({c.email})</option>)}
                 </select>
               </Field>
 
               <div className="lines">
                 <div className="lines-header">
                   <span>Products</span>
-                  <button type="button" className="btn btn-sm btn-ghost" onClick={addLine}>
-                    + Add line
-                  </button>
+                  <button type="button" className="btn btn-sm btn-ghost" onClick={addLine}>+ Add line</button>
                 </div>
                 {lines.map((line, i) => {
                   const p = productById[Number(line.product_id)];
                   return (
                     <div className="line-row" key={i}>
-                      <select
-                        className="input"
-                        value={line.product_id}
-                        onChange={(e) => updateLine(i, { product_id: e.target.value })}
-                      >
+                      <select className="input" value={line.product_id} onChange={(e) => updateLine(i, { product_id: e.target.value })}>
                         <option value="">Select product…</option>
                         {products.map((pr) => (
                           <option key={pr.id} value={pr.id} disabled={pr.quantity === 0}>
@@ -248,26 +272,10 @@ export default function Orders() {
                           </option>
                         ))}
                       </select>
-                      <input
-                        className="input qty"
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={line.quantity}
-                        onChange={(e) => updateLine(i, { quantity: e.target.value })}
-                      />
-                      <span className="line-sub">
-                        {p ? `$${(Number(p.price) * Number(line.quantity || 0)).toFixed(2)}` : "—"}
-                      </span>
+                      <input className="input qty" type="number" min="1" step="1" value={line.quantity} onChange={(e) => updateLine(i, { quantity: e.target.value })} />
+                      <span className="line-sub">{p ? `$${(Number(p.price) * Number(line.quantity || 0)).toFixed(2)}` : "—"}</span>
                       {lines.length > 1 && (
-                        <button
-                          type="button"
-                          className="icon-btn"
-                          onClick={() => removeLine(i)}
-                          aria-label="Remove line"
-                        >
-                          &times;
-                        </button>
+                        <button type="button" className="icon-btn" onClick={() => removeLine(i)} aria-label="Remove line">&times;</button>
                       )}
                     </div>
                   );
@@ -282,12 +290,8 @@ export default function Orders() {
               {formError && <div className="form-error-banner">{formError}</div>}
 
               <div className="modal-footer">
-                <button type="button" className="btn btn-ghost" onClick={() => setCreateOpen(false)} disabled={saving}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? "Placing order..." : "Place Order"}
-                </button>
+                <button type="button" className="btn btn-ghost" onClick={() => setCreateOpen(false)} disabled={saving}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Placing order..." : "Place Order"}</button>
               </div>
             </form>
           )}
@@ -305,7 +309,7 @@ export default function Orders() {
               </div>
               <div>
                 <span className="muted">Status</span>
-                <div><span className="badge badge-ok">{detail.status}</span></div>
+                <div><StatusBadge status={detail.status} /></div>
               </div>
               <div>
                 <span className="muted">Date</span>
@@ -316,6 +320,29 @@ export default function Orders() {
                 <div><strong>${Number(detail.total_amount).toFixed(2)}</strong></div>
               </div>
             </div>
+
+            {/* Lifecycle controls + invoice */}
+            <div className="status-actions">
+              {NEXT[detail.status]?.length > 0 && <span className="muted">Update status:</span>}
+              {NEXT[detail.status]?.map((s) => (
+                <button
+                  key={s}
+                  className={`btn btn-sm ${s === "cancelled" ? "btn-danger-ghost" : "btn-primary"}`}
+                  disabled={statusBusy}
+                  onClick={() => changeStatus(s)}
+                >
+                  {ACTION_LABEL[s]}
+                </button>
+              ))}
+              <button
+                className="btn btn-sm btn-ghost"
+                style={{ marginLeft: "auto" }}
+                onClick={() => DataAPI.openInvoice(detail.id).catch((e) => toast.error(extractError(e)))}
+              >
+                🧾 Invoice (PDF)
+              </button>
+            </div>
+
             <div className="table-wrap">
               <table className="table">
                 <thead>
@@ -344,12 +371,7 @@ export default function Orders() {
 
       {deleteTarget && (
         <Modal title="Delete Order" onClose={() => setDeleteTarget(null)}>
-          <ConfirmDelete
-            what={`Order #${deleteTarget.id}`}
-            busy={deleting}
-            onConfirm={confirmDelete}
-            onCancel={() => setDeleteTarget(null)}
-          />
+          <ConfirmDelete what={`Order #${deleteTarget.id}`} busy={deleting} onConfirm={confirmDelete} onCancel={() => setDeleteTarget(null)} />
         </Modal>
       )}
     </div>

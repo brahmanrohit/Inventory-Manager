@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CustomersAPI, extractError } from "../api/client.js";
+import { SuppliersAPI, extractError } from "../api/client.js";
 import { useAuth } from "../auth/AuthContext.jsx";
 import {
   ConfirmDelete, EmptyState, ErrorState, Field, Pagination, SearchBar, Spinner, useDebouncedValue,
@@ -7,19 +7,10 @@ import {
 import Modal from "../components/Modal.jsx";
 import { useToast } from "../components/Toast.jsx";
 
-const blank = { full_name: "", email: "", phone: "" };
+const blank = { name: "", email: "", phone: "" };
 const PAGE_SIZE = 10;
 
-function validate(form) {
-  const errors = {};
-  if (!form.full_name.trim()) errors.full_name = "Full name is required";
-  if (!form.email.trim()) errors.email = "Email is required";
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = "Enter a valid email";
-  if (!form.phone.trim() || form.phone.trim().length < 3) errors.phone = "Phone is required";
-  return errors;
-}
-
-export default function Customers() {
+export default function Suppliers() {
   const toast = useToast();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
@@ -43,7 +34,7 @@ export default function Customers() {
   const load = () => {
     setLoading(true);
     setError("");
-    CustomersAPI.list({ q: debouncedSearch || undefined, page, page_size: PAGE_SIZE })
+    SuppliersAPI.list({ q: debouncedSearch || undefined, page, page_size: PAGE_SIZE })
       .then(setData)
       .catch((e) => setError(extractError(e)))
       .finally(() => setLoading(false));
@@ -60,18 +51,20 @@ export default function Customers() {
 
   const submit = async (e) => {
     e.preventDefault();
-    const errs = validate(form);
+    const errs = {};
+    if (!form.name.trim()) errs.name = "Name is required";
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = "Enter a valid email";
     setFormErrors(errs);
     if (Object.keys(errs).length) return;
 
     setSaving(true);
     try {
-      await CustomersAPI.create({
-        full_name: form.full_name.trim(),
-        email: form.email.trim(),
-        phone: form.phone.trim(),
+      await SuppliersAPI.create({
+        name: form.name.trim(),
+        email: form.email.trim() || null,
+        phone: form.phone.trim() || null,
       });
-      toast.success("Customer created");
+      toast.success("Supplier created");
       setModalOpen(false);
       load();
     } catch (err) {
@@ -84,8 +77,8 @@ export default function Customers() {
   const confirmDelete = async () => {
     setDeleting(true);
     try {
-      await CustomersAPI.remove(deleteTarget.id);
-      toast.success("Customer deleted");
+      await SuppliersAPI.remove(deleteTarget.id);
+      toast.success("Supplier deleted");
       setDeleteTarget(null);
       load();
     } catch (err) {
@@ -99,24 +92,24 @@ export default function Customers() {
     <div className="page">
       <div className="page-header row">
         <div>
-          <h2>Customers</h2>
-          <p className="muted">Manage your customer directory</p>
+          <h2>Suppliers</h2>
+          <p className="muted">Vendors you restock products from</p>
         </div>
-        <button className="btn btn-primary" onClick={openAdd}>+ Add Customer</button>
+        {isAdmin && <button className="btn btn-primary" onClick={openAdd}>+ Add Supplier</button>}
       </div>
 
       <div className="toolbar">
-        <SearchBar value={search} onChange={setSearch} placeholder="Search by name, email or phone…" />
+        <SearchBar value={search} onChange={setSearch} placeholder="Search suppliers…" />
       </div>
 
       {loading ? (
-        <Spinner label="Loading customers..." />
+        <Spinner label="Loading suppliers..." />
       ) : error ? (
         <ErrorState message={error} onRetry={load} />
       ) : data.items.length === 0 ? (
         <EmptyState
-          message={debouncedSearch ? "No customers match your search." : "No customers yet."}
-          action={!debouncedSearch ? <button className="btn btn-primary" onClick={openAdd}>Add your first customer</button> : null}
+          message={debouncedSearch ? "No suppliers match your search." : "No suppliers yet."}
+          action={isAdmin && !debouncedSearch ? <button className="btn btn-primary" onClick={openAdd}>Add your first supplier</button> : null}
         />
       ) : (
         <div className="panel">
@@ -124,21 +117,21 @@ export default function Customers() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>Full Name</th>
+                  <th>Name</th>
                   <th>Email</th>
                   <th>Phone</th>
                   {isAdmin && <th className="actions-col">Actions</th>}
                 </tr>
               </thead>
               <tbody>
-                {data.items.map((c) => (
-                  <tr key={c.id}>
-                    <td>{c.full_name}</td>
-                    <td>{c.email}</td>
-                    <td>{c.phone}</td>
+                {data.items.map((s) => (
+                  <tr key={s.id}>
+                    <td>{s.name}</td>
+                    <td>{s.email || <span className="muted">—</span>}</td>
+                    <td>{s.phone || <span className="muted">—</span>}</td>
                     {isAdmin && (
                       <td className="actions-col">
-                        <button className="btn btn-sm btn-danger-ghost" onClick={() => setDeleteTarget(c)}>Delete</button>
+                        <button className="btn btn-sm btn-danger-ghost" onClick={() => setDeleteTarget(s)}>Delete</button>
                       </td>
                     )}
                   </tr>
@@ -151,28 +144,28 @@ export default function Customers() {
       )}
 
       {modalOpen && (
-        <Modal title="Add Customer" onClose={() => setModalOpen(false)}>
+        <Modal title="Add Supplier" onClose={() => setModalOpen(false)}>
           <form onSubmit={submit} className="form">
-            <Field label="Full Name" error={formErrors.full_name}>
-              <input className="input" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} placeholder="e.g. Alice Johnson" />
+            <Field label="Supplier Name" error={formErrors.name}>
+              <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Tech Distributors Inc." />
             </Field>
-            <Field label="Email Address" error={formErrors.email}>
-              <input className="input" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="e.g. alice@example.com" />
+            <Field label="Email (optional)" error={formErrors.email}>
+              <input className="input" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="e.g. sales@vendor.com" />
             </Field>
-            <Field label="Phone Number" error={formErrors.phone}>
-              <input className="input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="e.g. +1-202-555-0101" />
+            <Field label="Phone (optional)">
+              <input className="input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="e.g. +1-800-555-0199" />
             </Field>
             <div className="modal-footer">
               <button type="button" className="btn btn-ghost" onClick={() => setModalOpen(false)} disabled={saving}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Saving..." : "Create Customer"}</button>
+              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Saving..." : "Create Supplier"}</button>
             </div>
           </form>
         </Modal>
       )}
 
       {deleteTarget && (
-        <Modal title="Delete Customer" onClose={() => setDeleteTarget(null)}>
-          <ConfirmDelete what={deleteTarget.full_name} busy={deleting} onConfirm={confirmDelete} onCancel={() => setDeleteTarget(null)} />
+        <Modal title="Delete Supplier" onClose={() => setDeleteTarget(null)}>
+          <ConfirmDelete what={deleteTarget.name} busy={deleting} onConfirm={confirmDelete} onCancel={() => setDeleteTarget(null)} />
         </Modal>
       )}
     </div>

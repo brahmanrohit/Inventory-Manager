@@ -3,6 +3,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -11,7 +12,10 @@ from sqlalchemy.exc import IntegrityError
 from app.auth import get_current_user
 from app.config import settings
 from app.database import Base, SessionLocal, engine
-from app.routers import auth, customers, dashboard, orders, products
+from app.routers import (
+    analytics, auth, categories, customers, dashboard, data_io, notifications, orders,
+    products, purchase_orders, suppliers,
+)
 from app.seed import seed_if_empty
 
 logging.basicConfig(level=logging.INFO)
@@ -62,9 +66,11 @@ async def integrity_error_handler(request: Request, exc: IntegrityError):
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    # jsonable_encoder safely serializes error contexts (which can contain
+    # non-JSON objects like the original ValueError from a custom validator).
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={"detail": exc.errors()},
+        content={"detail": jsonable_encoder(exc.errors())},
     )
 
 
@@ -84,6 +90,12 @@ app.include_router(auth.router)
 # Business routes are protected — every request needs a valid bearer token.
 protected = [Depends(get_current_user)]
 app.include_router(products.router, dependencies=protected)
+app.include_router(categories.router, dependencies=protected)
 app.include_router(customers.router, dependencies=protected)
 app.include_router(orders.router, dependencies=protected)
+app.include_router(suppliers.router, dependencies=protected)
+app.include_router(purchase_orders.router, dependencies=protected)
 app.include_router(dashboard.router, dependencies=protected)
+app.include_router(analytics.router, dependencies=protected)
+app.include_router(notifications.router, dependencies=protected)
+app.include_router(data_io.router, dependencies=protected)

@@ -2,6 +2,65 @@
 
 Production-ready, containerized full-stack app for managing Products, Customers, Orders, and Inventory tracking.
 
+---
+
+## 🚀 ENHANCEMENT ROADMAP (post-MVP, building incrementally)
+
+Goal: grow from assessment MVP into a professional-grade system across 4 themes
+(reviewer-impressing breadth, domain depth, visual wow, engineering rigor).
+
+### Phase 1 — Core professionalism  ✅ DONE (2026-06-01, verified 25/25 backend tests + live smoke)
+- [x] **Roles** (admin / staff) on User; first registered user = admin, rest = staff.
+      Admin-only: product create/update/delete, customer delete. Staff can create orders.
+- [x] **Order status lifecycle**: pending → confirmed → shipped → delivered, + cancelled.
+      `PATCH /orders/{id}/status` with transition validation; cancelling restocks inventory.
+- [x] **Search + filter + sort + pagination** on products/customers/orders list endpoints
+      (query params; responses now a `{items,total,page,page_size,pages}` envelope).
+- [x] Frontend: role-aware UI (hides admin actions for staff, role badge in topbar),
+      status badges + lifecycle buttons in order detail, search bars, pagination,
+      `total_revenue` + orders-by-status on dashboard.
+- ⚠️ NOT yet deployed: live Render Postgres still has the old schema (no `users.role`
+      column). Deploying Phase 1 needs a DB reset or Alembic (Phase 4). Local SQLite is
+      recreated and working.
+
+### Phase 2 — Inventory domain depth  ✅ DONE (2026-06-01, 32/32 backend tests + live smoke)
+- [x] **Categories** (Category model; product.category_id; filter by category; manager UI; counts).
+- [x] **Stock movement audit log** (StockMovement table: every initial/sale/order_cancel/
+      purchase/adjustment with reason + timestamp + resulting qty). Per-product History modal.
+- [x] **Suppliers** (CRUD, search, pagination) and **Purchase Orders** (create → receive
+      increases stock + logs "purchase" movement; cannot receive twice / delete received).
+- [x] Manual **stock adjustment** endpoint + UI (with reason, blocks negative stock).
+- [x] Bugfix: validation error handler now uses jsonable_encoder (custom validators no longer 500).
+- New nav: Suppliers, Purchase Orders. Editing product quantity logs an adjustment movement.
+
+### Phase 3 — Analytics & visual wow  ✅ DONE (2026-06-01, 14/14 backend tests + live smoke)
+- [x] **Analytics endpoints**: /analytics/sales-trend, /top-products, /inventory-value,
+      /category-distribution (+ orders-by-status already on dashboard).
+- [x] **Dashboard charts** (recharts): revenue area chart, top-products bar, category pie,
+      inventory-value card.
+- [x] **CSV export** (/data/products.csv, /data/orders.csv) + **product CSV import**
+      (/data/products/import, upsert by SKU, auto-creates categories, logs movements).
+- [x] **PDF invoice** per order (/orders/{id}/invoice via reportlab).
+- [x] **Notifications** feed (/notifications: out-of-stock, low-stock, pending POs) with a
+      topbar bell + badge, polling every 60s.
+- New deps: reportlab, python-multipart (backend), recharts (frontend).
+- Note: Phase 3 added NO schema changes (no DB reset needed).
+
+### Phase 4 — Engineering rigor
+- [ ] **pytest** suite (formalize the 23+ business-rule tests) + fixtures.
+- [ ] **GitHub Actions CI** (run tests + build on push).
+- [ ] **Alembic migrations** (replace create_all; proper schema management — also fixes
+      deploying schema changes to the live Postgres).
+- [ ] **Auth hardening**: refresh tokens, logout/blacklist, rate limiting, structured logging.
+
+> SCHEMA NOTE: we currently use `create_all` (creates missing tables only, never ALTERs).
+> Adding columns to existing tables won't auto-apply to the deployed Postgres until Phase 4
+> (Alembic). During local dev we recreate `backend/dev.db`. For the live DB, a one-time reset
+> or Alembic migration is required after schema-changing phases.
+
+---
+
+
 ## Tech Stack
 - **Backend:** Python 3.12 + FastAPI + SQLAlchemy 2.0 + Pydantic v2 (PostgreSQL via psycopg2)
 - **Frontend:** React 18 (JavaScript) + Vite + React Router + Axios

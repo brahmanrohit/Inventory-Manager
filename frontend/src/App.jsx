@@ -7,6 +7,8 @@ import Dashboard from "./pages/Dashboard.jsx";
 import Products from "./pages/Products.jsx";
 import Customers from "./pages/Customers.jsx";
 import Orders from "./pages/Orders.jsx";
+import Suppliers from "./pages/Suppliers.jsx";
+import PurchaseOrders from "./pages/PurchaseOrders.jsx";
 import Login from "./pages/Login.jsx";
 import Signup from "./pages/Signup.jsx";
 
@@ -32,6 +34,8 @@ export default function App() {
             <Route path="products" element={<Products />} />
             <Route path="customers" element={<Customers />} />
             <Route path="orders" element={<Orders />} />
+            <Route path="suppliers" element={<Suppliers />} />
+            <Route path="purchase-orders" element={<PurchaseOrders />} />
             <Route path="*" element={<Dashboard />} />
           </Route>
         </Routes>
