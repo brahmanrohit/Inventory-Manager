@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     # Seed demo data on startup if the database is empty.
     SEED_ON_STARTUP: bool = True
 
+    # DANGER: drop & recreate ALL tables on startup. Used for a one-time schema
+    # rebuild when an existing database predates a schema change (no Alembic yet).
+    # Set to true ONCE via env, redeploy, then set back to false.
+    RESET_DB_ON_STARTUP: bool = False
+
     # Authentication. SECRET_KEY MUST be overridden via env in production.
     SECRET_KEY: str = "dev-secret-change-me-in-production"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours

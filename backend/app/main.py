@@ -24,6 +24,12 @@ logger = logging.getLogger("inventory")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # One-time schema rebuild for databases that predate a schema change.
+    # Toggle RESET_DB_ON_STARTUP=true via env once, then set it back to false.
+    if settings.RESET_DB_ON_STARTUP:
+        logger.warning("RESET_DB_ON_STARTUP is set — dropping and recreating ALL tables")
+        Base.metadata.drop_all(bind=engine)
+
     # Create tables on startup. For this assessment we manage the schema with
     # SQLAlchemy's metadata; a larger system would use Alembic migrations.
     Base.metadata.create_all(bind=engine)
